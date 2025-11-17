@@ -1,0 +1,831 @@
+openapi: 3.0.3
+info:
+  title: Happening API (Evently)
+  version: 1.0.0
+  description: |
+    OpenAPI specification for the Happening/Evently backend. 
+    This API demonstrates a scalable, production-grade architecture featuring:
+    - **Redis Caching:** For all public GET routes to handle read-heavy traffic.
+    - **RabbitMQ Queueing:** For the /bookings endpoint to handle write-heavy "flash sale" scenarios.
+    - **PostgreSQL Transactions (FOR UPDATE):** To ensure data integrity and prevent overselling.
+    - **Full Admin & Host Management:** Complete with approval flows and analytics.
+servers:
+  - url: http://localhost:5000/api
+    description: Local development server
+  - url: https://your-deployed-url.com/api
+    description: Production server
+
+# ==========================================================
+#  Reusable Components (Schemas & Security)
+# ==========================================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "User's JWT token, prefixed with 'Bearer '"
+
+  schemas:
+    # --- Base Models ---
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      example:
+        error: "Invalid or expired token"
+    
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      example:
+        message: "Operation successful"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [user, admin]
+        is_host:
+          type: boolean
+        host_status:
+          type: string
+          enum: [not_requested, pending, approved, rejected]
+      example:
+        id: "a1b2c3d4-..."
+        email: "alice@example.com"
+        name: "Alice"
+        role: "user"
+        is_host: true
+        host_status: "approved"
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        venue:
+          type: string
+        date_time:
+          type: string
+          format: date-time
+        total_tickets:
+          type: integer
+        available_tickets:
+          type: integer
+        price:
+          type: number
+          format: float
+        category:
+          type: string
+          enum: [music, food, sports, tech, arts, health, workshop]
+        image_url:
+          type: string
+          format: uri
+        latitude:
+          type: number
+          format: float
+        longitude:
+          type: number
+          format: float
+        organizer_name:
+          type: string
+      example:
+        id: "e1f2a3b4-..."
+        title: "Live Tech Conference"
+        description: "The biggest tech conference of the year."
+        venue: "1 Infinite Loop, Cupertino, CA 95014"
+        date_time: "2025-12-01T20:00:00Z"
+        total_tickets: 1000
+        available_tickets: 450
+        price: 999.0
+        category: "tech"
+        image_url: "https://example.com/image.jpg"
+        latitude: 37.3318
+        longitude: -122.0312
+        organizer_name: "Admin"
+
+    MyBooking:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled]
+        ticket_count:
+          type: integer
+        total_amount:
+          type: number
+        event_id:
+          type: string
+          format: uuid
+        event_title:
+          type: string
+        event_date:
+          type: string
+          format: date-time
+        image_url:
+          type: string
+          format: uri
+        category:
+          type: string
+        event_description:
+          type: string
+        payment_status:
+          type: string
+          enum: [pending, succeeded, refunded, refund_failed, no_payment]
+    
+    LocationSuggestion:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+      example:
+        id: 1701323363
+        name: "Bhopal, Bhopal District, Madhya Pradesh, India"
+
+    # --- Request & Response Models ---
+    AuthRegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        name:
+          type: string
+      example:
+        email: "alice@example.com"
+        password: "pass123"
+        name: "Alice"
+    
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      example:
+        email: "alice@example.com"
+        password: "pass123"
+
+    AuthResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+      example:
+        message: "User registered successfully"
+        user:
+          id: "a1b2c3d4-..."
+          email: "alice@example.com"
+          name: "Alice"
+          role: "user"
+        token: "eyJhbGci...token"
+
+    BookingRequest:
+      type: object
+      required: [event_id, ticket_count]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        ticket_count:
+          type: integer
+          minimum: 1
+      example:
+        event_id: "e1f2a3b4-..."
+        ticket_count: 2
+    
+    BookingResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      example:
+        success: true
+        message: "Booking request received! We are processing your tickets."
+
+    PaymentOrderRequest:
+      type: object
+      properties:
+        booking_id:
+          type: string
+          format: uuid
+      required: [booking_id]
+      example:
+        booking_id: "b1c2d3e4-..."
+
+    PaymentOrderResponse:
+      type: object
+      properties:
+        order_id:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        key_id:
+          type: string
+      example:
+        order_id: "order_9A33XWu170gUtm"
+        amount: 998.0
+        currency: "INR"
+        key_id: "rzp_test_XXXX"
+
+    VerifyPaymentRequest:
+      type: object
+      required: [razorpay_order_id, razorpay_payment_id, razorpay_signature]
+      properties:
+        razorpay_order_id:
+          type: string
+        razorpay_payment_id:
+          type: string
+        razorpay_signature:
+          type: string
+      example:
+        razorpay_order_id: "order_9A33XWu170gUtm"
+        razorpay_payment_id: "pay_29QQoUBi66xm2f"
+        razorpay_signature: "d6f30c..."
+    
+    HostApplicationRequest:
+      type: object
+      required: [phone, idType, idNumber, account_holder_name, account_number, ifsc_code, bank_name]
+      properties:
+        phone: { type: string }
+        idType: { type: string }
+        idNumber: { type: string }
+        organization: { type: string }
+        experience: { type: string }
+        bio: { type: string }
+        account_holder_name: { type: string }
+        account_number: { type: string }
+        ifsc_code: { type: string }
+        bank_name: { type: string }
+        account_type: { type: string, enum: [savings, current], default: "savings" }
+
+    AnalyticsResponse:
+      type: object
+      properties:
+        stats:
+          type: object
+          properties:
+            total_revenue: { type: string }
+            total_confirmed_bookings: { type: integer }
+            total_active_events: { type: integer }
+            total_approved_hosts: { type: integer }
+        popularEvents:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              title: { type: string }
+              bookings_count: { type: integer }
+        capacity:
+          type: object
+          properties:
+            platform_total_capacity: { type: integer }
+            platform_total_sold: { type: integer }
+            utilization_percentage: { type: string }
+
+# ==========================================================
+#  API Paths
+# ==========================================================
+paths:
+  # --- Health Check ---
+  /health:
+    get:
+      summary: Health check for API and DB
+      tags: [System]
+      responses:
+        "200":
+          description: OK
+  
+  # --- Auth ---
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthRegisterRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Bad request (e.g., user exists)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      summary: Login and get JWT
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Unauthorized (Invalid credentials)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # --- Public Event Routes ---
+  /events/public/upcoming:
+    get:
+      summary: Get upcoming public events (cached)
+      tags: [Events]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Event"
+
+  /events/public/search:
+    get:
+      summary: Search public events (cached)
+      tags: [Events]
+      parameters:
+        - { name: query, in: query, schema: { type: string }, description: "Search query text" }
+        - { name: category, in: query, schema: { type: string }, description: "Event category" }
+        - { name: min_price, in: query, schema: { type: number }, description: "Minimum price" }
+        - { name: max_price, in: query, schema: { type: number }, description: "Maximum price" }
+        - { name: location, in: query, schema: { type: string }, description: "Location name (e.g., 'Bhopal')" }
+        - { name: radius, in: query, schema: { type: integer }, description: "Radius in miles" }
+        - { name: date, in: query, schema: { type: string, enum: [today, tomorrow, weekend, week] }, description: "Date range filter" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Event"
+  
+  /events/public/categories:
+    get:
+      summary: Get available event categories (cached)
+      tags: [Events]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      type: string
+
+  # --- THIS IS THE FIX ---
+  # GET and PUT are now under the *same* /events/{id} path
+  /events/{id}:
+    get:
+      summary: Get a single event by ID (cached)
+      tags: [Events]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event:
+                    $ref: "#/components/schemas/Event"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    
+    put:
+      summary: Update an event (Host or Admin)
+      tags: [Events]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Event"
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (Not event owner)
+        "404":
+          description: Not Found
+  # --- END OF FIX ---
+
+  # --- Protected Event Routes (Host/Admin) ---
+  /events:
+    post:
+      summary: Create a new event (Admin or Approved Host)
+      tags: [Events]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Event" # Simplified, re-uses Event schema
+      responses:
+        "201":
+          description: Created (or pending approval)
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (Not an approved host)
+          
+  /events/{id}/cancel:
+    post:
+      summary: Cancel an event & refund all bookings (Host or Admin)
+      tags: [Events]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (Not event owner)
+        "404":
+          description: Not Found
+
+  # --- Protected User Profile ---
+  /profile:
+    get:
+      summary: Get current user profile
+      tags: [User]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+
+  # --- Protected Booking Routes ---
+  /bookings:
+    post:
+      summary: Enqueue a booking request (Async)
+      description: This endpoint is asynchronous. It adds a job to the queue and returns 202 Accepted.
+      tags: [Bookings]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingRequest"
+      responses:
+        "202":
+          description: Accepted (Booking is processing)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingResponse"
+        "401":
+          description: Unauthorized
+        "503":
+          description: Service unavailable (Queue is down)
+
+  /bookings/my-bookings:
+    get:
+      summary: Get all bookings for the current user
+      tags: [Bookings]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookings:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MyBooking"
+        "401":
+          description: Unauthorized
+          
+  /bookings/{id}/cancel-pending:
+    post:
+      summary: Cancel a *pending* (unpaid) booking
+      tags: [Bookings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+        "404":
+          description: Pending booking not found
+          
+  # --- Protected Cancellation Routes ---
+  /cancellations/{booking_id}/cancel:
+    post:
+      summary: Cancel a *confirmed* booking (processes refund)
+      tags: [Bookings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: booking_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Cancelled
+        "400":
+          description: Not cancellable (e.g., 24-hour rule)
+        "401":
+          description: Unauthorized
+        "404":
+          description: Confirmed booking not found
+          
+  # --- Protected Payment Routes ---
+  /payments/create-order:
+    post:
+      summary: Create a Razorpay order for a pending booking
+      tags: [Payments]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentOrderRequest"
+      responses:
+        "200":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentOrderResponse"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Pending booking not found
+
+  /payments/verify-payment:
+    post:
+      summary: Verify Razorpay payment and confirm booking
+      tags: [Payments]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyPaymentRequest"
+      responses:
+        "200":
+          description: Verified
+        "400":
+          description: Invalid signature
+
+  # --- Protected Host Routes ---
+  /hosts/apply:
+    post:
+      summary: Apply to become a host (or update bank details)
+      tags: [Host]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HostApplicationRequest"
+      responses:
+        "200":
+          description: Application submitted
+        "400":
+          description: Bad request (e.g., already pending)
+        "401":
+          description: Unauthorized
+
+  /hosts/my-status:
+    get:
+      summary: Get the current user's host status
+      tags: [Host]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+
+  # --- Protected Location Routes ---
+  /locations/autocomplete:
+    get:
+      summary: Location autocomplete (in-memory cached)
+      tags: [System]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          
+  # --- Admin-Only Routes ---
+  /analytics/dashboard:
+    get:
+      summary: Get all dashboard analytics
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (Not an admin)
+
+  /events/admin/pending:
+    get:
+      summary: (Admin) Get all pending events for review
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /hosts/applications/pending:
+    get:
+      summary: (Admin) Get all pending host applications
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /hosts/applications/{userId}/review:
+    post:
+      summary: (Admin) Approve or reject a host application
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action: { type: string, enum: [approve, reject] }
+                adminNotes: { type: string }
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Invalid action
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
