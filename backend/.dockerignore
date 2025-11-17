@@ -1,0 +1,8 @@
+# This file is for Docker, not Git.
+# We already have a .gitignore, but this is good practice.
+
+node_modules
+npm-debug.log
+.env
+.git
+.gitignore

@@ -1,0 +1,32 @@
+# --- Stage 1: Build ---
+# Use an official Node.js image as a base
+FROM node:18-slim AS build
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY package.json package-lock.json ./
+
+# Install *only* production dependencies
+RUN npm ci --omit=dev
+
+# Copy the rest of your backend code
+COPY . .
+
+# --- Stage 2: Final Image ---
+# Use a fresh, minimal Node.js image
+FROM node:18-slim
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the installed node_modules from the 'build' stage
+COPY --from=build /app/node_modules ./node_modules
+
+# Copy your application code from the 'build' stage
+COPY --from=build /app ./
+
+# This container has NO exposed port. It's a background worker.
+# The command to start your worker
+CMD [ "node", "worker.js" ]
