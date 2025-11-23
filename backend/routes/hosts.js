@@ -90,8 +90,7 @@ router.post("/apply", authenticateToken, async (req, res) => {
         `UPDATE host_bank_accounts 
          SET account_holder_name = $1, account_number = $2, ifsc_code = $3, 
              bank_name = $4, account_type = $5, is_verified = false, 
-             is_payout_eligible = false, razorpay_contact_id = null, 
-             razorpay_fund_account_id = null, updated_at = NOW()
+             is_payout_eligible = false, updated_at = NOW()
          WHERE user_id = $6`,
         [
           account_holder_name,

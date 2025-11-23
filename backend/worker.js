@@ -68,6 +68,10 @@ async function processBookingJob(job) {
 
 // The main worker function
 async function startWorker() {
+  if (!process.env.AMQP_URL) {
+    console.log("⚠️  RabbitMQ not configured - worker disabled");
+    return;
+  }
   try {
     const connection = await amqp.connect(amqpUrl);
     const channel = await connection.createChannel();

@@ -13,41 +13,82 @@ router.post("/", authenticateToken, async (req, res) => {
   const channel = req.app.get("amqpChannel");
   const queue = req.app.get("amqpQueue");
 
-  if (!channel) {
-    return res.status(503).json({
-      error:
-        "Booking service is temporarily unavailable. Please try again later.",
-    });
-  }
-
   if (!event_id || !ticket_count || ticket_count <= 0) {
     return res.status(400).json({ error: "Invalid event ID or ticket count" });
   }
 
   try {
-    // 1. Create the job payload
-    const job = {
-      event_id,
-      user_id,
-      ticket_count: parseInt(ticket_count),
-    };
+    // If RabbitMQ is available, use it for background processing
+    if (channel && queue) {
+      const job = {
+        event_id,
+        user_id,
+        ticket_count: parseInt(ticket_count),
+      };
+      channel.sendToQueue(queue, Buffer.from(JSON.stringify(job)), {
+        persistent: true,
+      });
+      return res.status(202).json({
+        success: true,
+        message: "Booking request received! We are processing your tickets.",
+      });
+    } else {
+      // 🆕 FALLBACK: Process booking immediately without RabbitMQ
+      console.log('⚠️  Processing booking immediately (no RabbitMQ)');
+      
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
 
-    // 2. Send the job to the queue
-    // We stringify the JSON to send it as a Buffer
-    // 'persistent: true' means the job won't be lost if RabbitMQ restarts
-    channel.sendToQueue(queue, Buffer.from(JSON.stringify(job)), {
-      persistent: true,
-    });
+        // 1. Lock the event row and check tickets
+        const eventResult = await client.query(
+          "SELECT price, available_tickets FROM events WHERE id = $1 FOR UPDATE",
+          [event_id]
+        );
 
-    // 3. Instantly return a "202 Accepted" response
-    // This tells the user "We got your request and are working on it."
-    return res.status(202).json({
-      success: true,
-      message: "Booking request received! We are processing your tickets.",
-    });
+        if (eventResult.rows.length === 0) {
+          throw new Error(`Event not found: ${event_id}`);
+        }
+
+        const event = eventResult.rows[0];
+        if (event.available_tickets < ticket_count) {
+          throw new Error(`Not enough tickets available for event: ${event_id}`);
+        }
+
+        // 2. Update available tickets
+        const newAvailableTickets = event.available_tickets - ticket_count;
+        const totalAmount = event.price * ticket_count;
+
+        await client.query(
+          "UPDATE events SET available_tickets = $1 WHERE id = $2",
+          [newAvailableTickets, event_id]
+        );
+
+        // 3. Create the booking
+        const bookingResult = await client.query(
+          `INSERT INTO bookings (user_id, event_id, ticket_count, total_amount, status)
+           VALUES ($1, $2, $3, $4, 'pending')
+           RETURNING *`,
+          [user_id, event_id, ticket_count, totalAmount]
+        );
+
+        await client.query("COMMIT");
+
+        return res.status(200).json({
+          success: true,
+          message: "Booking created successfully!",
+          booking: bookingResult.rows[0]
+        });
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
   } catch (error) {
-    console.error("Booking queue error:", error);
-    return res.status(500).json({ error: "Failed to submit booking request." });
+    console.error("Booking error:", error);
+    return res.status(500).json({ error: "Failed to process booking: " + error.message });
   }
 });
 

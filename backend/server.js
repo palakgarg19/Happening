@@ -38,6 +38,13 @@ redisClient.connect();
 
 async function setupRabbitMQ() {
   try {
+    if (!process.env.AMQP_URL) {
+      console.log('⚠️  RabbitMQ not configured - running without message queue');
+      app.set('amqpChannel', null);
+      app.set('amqpQueue', null);
+      return;
+    }
+
     const connection = await amqp.connect(amqpUrl);
     const channel = await connection.createChannel();
     
@@ -52,7 +59,9 @@ async function setupRabbitMQ() {
     app.set('amqpQueue', QUEUE_NAME);
 
   } catch (error) {
-    console.error('❌ Failed to connect to RabbitMQ', error);
+    console.error('❌ Failed to connect to RabbitMQ, running without it', error);
+    app.set('amqpChannel', null);
+    app.set('amqpQueue', null);
   }
 }
 // Make the client available to other files (like events.js)
