@@ -15,7 +15,7 @@ import EventBookingsModal from "./components/EventBookingsModal";
 import EventDetailPage from "./components/EventDetailPage";
 import HostApplicationModal from "./components/HostApplicationModal";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 function App() {
   // === System & Global State ===

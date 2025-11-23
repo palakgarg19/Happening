@@ -205,10 +205,7 @@ app.set("redisClient", redisClient);
 // Middleware
 app.use(
   cors({
-    origin: [
-      "https://happening.vercel.app", // Your Vercel frontend
-      "http://localhost:5173", // Vite dev server
-    ],
+    origin: ["https://happening-seven.vercel.app", "http://localhost:5173"],
     credentials: true,
   })
 );
