@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import { useState, useEffect, useRef } from "react";
+import axios from "axios";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "https://happening-backend-production.up.railway.app/api";
 
-function LocationAutocomplete({ initialValue = '', onSelect, placeholder }) {
+function LocationAutocomplete({ initialValue = "", onSelect, placeholder }) {
   const [query, setQuery] = useState(initialValue);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -41,17 +41,17 @@ function LocationAutocomplete({ initialValue = '', onSelect, placeholder }) {
   const handleChange = (e) => {
     const value = e.target.value;
     setQuery(value);
-    
+
     // Clear the old timeout
     if (debounceTimeout.current) {
       clearTimeout(debounceTimeout.current);
     }
-    
+
     // Set a new timeout
     debounceTimeout.current = setTimeout(() => {
       fetchSuggestions(value);
     }, 300); // 300ms debounce
-    
+
     setShowSuggestions(true);
   };
 
