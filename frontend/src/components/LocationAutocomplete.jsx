@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
-const API_BASE = "https://happening-backend-production.up.railway.app/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 function LocationAutocomplete({ initialValue = "", onSelect, placeholder }) {
   const [query, setQuery] = useState(initialValue);
