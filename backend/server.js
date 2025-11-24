@@ -249,7 +249,7 @@ app.get("/api/health", async (req, res) => {
       SELECT COUNT(*) as table_count 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
-      AND table_name IN ('users', 'events', 'bookings', 'payments')
+      AND table_name IN ('users', 'events', 'bookings', 'payments', 'payouts', 'host_bank_accounts')
     `);
 
     const tableCount = parseInt(result.rows[0].table_count);
@@ -257,9 +257,9 @@ app.get("/api/health", async (req, res) => {
     res.json({
       message: "✅ Happening API is running! 🎉",
       database: "✅ Connected successfully",
-      tables: `Found ${tableCount}/4 core tables`,
+      tables: `Found ${tableCount}/6 core tables`,
       status:
-        tableCount === 4 ? "✅ All tables ready" : "⚠️ Some tables missing",
+        tableCount === 6 ? "✅ All tables ready" : "⚠️ Some tables missing",
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
