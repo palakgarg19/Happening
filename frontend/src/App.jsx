@@ -289,7 +289,7 @@ function App() {
       fetchHostStatus();
       fetchBankAccount();
     } catch (error) {
-      console.error("💥 Host application error:", error);
+      console.error("Host application error:", error);
       alert(
         `❌ Application failed: ${
           error.response?.data?.error || "Failed to submit application."
