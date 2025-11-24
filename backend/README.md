@@ -210,9 +210,23 @@ RAZORPAY_KEY_ID=YOUR_RAZORPAY_TEST_KEY_ID
 RAZORPAY_KEY_SECRET=YOUR_RAZORPAY_TEST_KEY_SECRET
 ```
 
-**4. Setup Database**
+Create a .env file in the frontend/ directory and add the following:
 
-Run the init.sql script (included in this folder) against your PostgreSQL database. This will create all necessary tables, enums, and indexes.
+```
+VITE_API_URL=http://localhost:5000/api
+```
+
+**4. Setup Database (One-time)**
+
+```bash
+cd backend
+# Uncomment setupDatabase() in server.js temporarily
+# Run server once to create tables
+npm run dev
+# Then re-comment setupDatabase() to prevent data loss
+```
+
+This will create all necessary tables, enums, and indexes.
 
 **5. Run the Application**
 
@@ -237,6 +251,19 @@ You must start two separate processes in two separate terminals.
   ```
   (Worker connects to RabbitMQ and waits for jobs)
 
+### 🧪 Testing the Application
+
+**Default Admin Account**
+- Email: admin@happening.com
+- Password: 12345678
+
+**Test User Flow**
+1. Register a new user account
+2. Browse events and use search filters
+3. Apply to become a host
+4. Create events (requires admin approval)
+5. Make test bookings and payments
+
 ### 📂 Project Structure
 
 ```
@@ -254,7 +281,6 @@ You must start two separate processes in two separate terminals.
 │   ├── hosts.js            
 │   ├── locations.js        
 │   └── payments.js         
-├── init.sql                # Database schema and initial data
 ├── openapi.yaml            # Full API specification
 ├── package.json
 ├── server.js               # Main API entry point (Express, Redis, RabbitMQ setup)
@@ -265,4 +291,5 @@ You must start two separate processes in two separate terminals.
 
 For a complete, interactive list of all endpoints, you can view the OpenAPI spec.
 
-- The full [API Docs](./openapi.yaml) specification is included in this repository. You can use any OpenAPI viewer (like the Swagger Editor) to view it.
+- Local: http://localhost:5000/api-docs
+- Production: https://happening-backend-production.up.railway.app/api-docs
