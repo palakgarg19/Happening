@@ -4,6 +4,14 @@ Happening is a complete, full-stack event booking platform built from the ground
 
 It features a modern React frontend and a high-performance Node.js backend that uses a message queue (RabbitMQ) to manage booking spikes, a Redis cache to ensure fast browsing, and a secure host-and-payout system for event organizers.
 
+### 🌐 Live Deployment
+
+**Frontend**: https://happening-seven.vercel.app
+
+**Backend API**: https://happening-backend-production.up.railway.app/api/health
+
+**API Documentation**: https://happening-backend-production.up.railway.app/api-docs
+
 
 ### ✨ Core Features
 
