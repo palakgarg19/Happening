@@ -19,7 +19,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 function App() {
   // === System & Global State ===
-  const [health, setHealth] = useState(null);
+  // const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // === Authentication & User State ===
@@ -941,21 +941,21 @@ function App() {
     [payoutFormData, fetchAdminPayouts]
   );
 
-  const checkAPIHealth = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_BASE}/health`);
-      setHealth(response.data);
-    } catch (error) {
-      console.error("Failed to connect to API:", error);
-      setHealth({
-        message: "❌ Failed to connect to backend API",
-        error: error.message,
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // const checkAPIHealth = useCallback(async () => {
+  //   try {
+  //     setLoading(true);
+  //     const response = await axios.get(`${API_BASE}/health`);
+  //     setHealth(response.data);
+  //   } catch (error) {
+  //     console.error("Failed to connect to API:", error);
+  //     setHealth({
+  //       message: "❌ Failed to connect to backend API",
+  //       error: error.message,
+  //     });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, []);
 
   const getPayoutStatusColor = (status) => {
     switch (status) {
@@ -995,7 +995,7 @@ function App() {
       try {
         setLoading(true);
         // 1. Fetch all public-facing data
-        await checkAPIHealth();
+        // await checkAPIHealth();
         await fetchEvents();
         await fetchCategories();
 
@@ -1012,7 +1012,7 @@ function App() {
       }
     };
     initializeApp();
-  }, [checkAPIHealth, fetchEvents, fetchCategories, fetchUserProfile]);
+  }, [fetchEvents, fetchCategories, fetchUserProfile]);
 
   /**
    * HOOK 2: Search Debouncer
@@ -1207,7 +1207,7 @@ function App() {
         )}
       </main>
 
-      <HealthCheckFooter health={health} onRefresh={checkAPIHealth} />
+      {/* <HealthCheckFooter health={health} onRefresh={checkAPIHealth} /> */}
 
       {showLoginModal && (
         <AuthModal
