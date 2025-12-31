@@ -18,8 +18,11 @@ router.post("/", authenticateToken, async (req, res) => {
   }
 
   try {
-    // If RabbitMQ is available, use it for background processing
-    if (channel && queue) {
+    // Check if worker is explicitly disabled
+    const disableWorker = process.env.DISABLE_WORKER === "true";
+
+    // Use RabbitMQ ONLY if it's available AND not explicitly disabled
+    if (channel && queue && !disableWorker) {
       const job = {
         event_id,
         user_id,
@@ -35,7 +38,7 @@ router.post("/", authenticateToken, async (req, res) => {
     } else {
       // 🆕 FALLBACK: Process booking immediately without RabbitMQ
       console.log('⚠️  Processing booking immediately (no RabbitMQ)');
-      
+
       const client = await pool.connect();
       try {
         await client.query("BEGIN");

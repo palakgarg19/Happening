@@ -258,15 +258,18 @@ function App() {
         );
 
         alert(
-          "Booking accepted! Taking you to 'My Bookings' to complete payment."
+          "Booking accepted! Taking you to 'My Bookings'."
         );
 
-        fetchEvents();
-        fetchMyBookings();
+        // Tiny delay to ensure DB consistency before redirect/fetch
+        setTimeout(() => {
+          fetchEvents();
+          fetchMyBookings();
+          setActiveTab("bookings");
+          setBookingsSubTab("pending");
+          setHighlightEventId(eventId);
+        }, 500);
 
-        setActiveTab("bookings");
-        setBookingsSubTab("pending");
-        setHighlightEventId(eventId);
         return true;
       } catch (error) {
         console.error("Booking submission error:", error);
@@ -301,8 +304,7 @@ function App() {
     } catch (error) {
       console.error("Host application error:", error);
       alert(
-        `❌ Application failed: ${
-          error.response?.data?.error || "Failed to submit application."
+        `❌ Application failed: ${error.response?.data?.error || "Failed to submit application."
         }`
       );
     }
