@@ -6,11 +6,20 @@ It features a modern React frontend and a high-performance Node.js backend that 
 
 ### 🌐 Live Deployment
 
-**Frontend**: https://happening-seven.vercel.app
+**Frontend**: [happening-seven.vercel.app](https://happening-seven.vercel.app)
 
-**Backend API**: https://happening-backend-production.up.railway.app/api/health
+**Backend API**: [happening-api.onrender.com](https://happening-eyjp.onrender.com/api/health)
 
-**API Documentation**: https://happening-backend-production.up.railway.app/api-docs
+**API Documentation**: [happening-api.onrender.com/api-docs](https://happening-eyjp.onrender.com/api-docs)
+
+
+### 🔑 Demo Credentials
+
+| Role | Email | Password |
+|:--- |:--- |:--- |
+| **Admin** | `admin@happening.com` | `password` |
+| **Host** | `user1@happening.com` | `password` |
+| **User** | `user2@happening.com` | `password` |
 
 
 ### ✨ Core Features
@@ -30,14 +39,14 @@ It features a modern React frontend and a high-performance Node.js backend that 
 ### 🛠 Tech Stack
 
 
-| Area | Technology | Purpose |
+| Tech | Service | Purpose |
 |:-----|:------:|------:|
-| Frontend | React, Vite, Axios | A modern, fast, and responsive user interface. |
-| Backend | Node.js, Express | A high-performance, non-blocking API server. |
-| Database | PostgreSQL | For robust, transactional data integrity. |
-| Caching | Redis | To cache all high-traffic GET requests for speed. |
-| Queueing | RabbitMQ | To decouple the API from the DB and manage booking spikes. |
-| Payments | Razorpay | Integrated for handling (simulated) payments and refunds. |
+| **Frontend** | React, Vite, Vercel | Modern, fast UI deployed on Vercel. |
+| **Backend** | Node.js, Express, Render | High-performance API server hosted on Render. |
+| **Database** | PostgreSQL (Neon) | Scalable serverless database for transactional integrity. |
+| **Caching** | Redis (Upstash) | Global caching layer for sub-10ms response times. |
+| **Queueing** | RabbitMQ (CloudAMQP) | Managed queue for asynchronous booking processing. |
+| **Payments** | Razorpay | Integrated for handling (simulated) payments and refunds. |
 
 
 
@@ -127,7 +136,7 @@ npm run dev
 ```
 
 
-✅ Server should be running on http://localhost:5000
+✅ Server should be running on [http://localhost:5001](http://localhost:5001)
 
 **3. Run the Booking Worker (Terminal 2)**
 
@@ -151,9 +160,9 @@ npm run dev
 ```
 
 
-✅ App should be running on http://localhost:5173
+✅ App should be running on [http://localhost:5173](http://localhost:5173)
 
-You can now open http://localhost:5173 in your browser to use the full application.
+You can now open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ### 📂 Project Structure
 

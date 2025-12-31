@@ -9,13 +9,12 @@ import MyBookings from "./components/MyBookings";
 import AdminPanel from "./components/AdminPanel";
 import HostDashboard from "./components/HostDashboard";
 import EventFormModal from "./components/EventFormModal";
-import HealthCheckFooter from "./components/HealthCheckFooter";
 import PayoutModal from "./components/PayoutModal";
 import EventBookingsModal from "./components/EventBookingsModal";
 import EventDetailPage from "./components/EventDetailPage";
 import HostApplicationModal from "./components/HostApplicationModal";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 
 function App() {
   // === System & Global State ===
@@ -130,6 +129,17 @@ function App() {
       await fetchMyBookings();
       await fetchHostStatus();
       await fetchBankAccount();
+
+      const loggedInUser = response.data.user;
+      setUser(loggedInUser);
+      setShowLoginModal(false);
+
+      // Redirect based on role
+      if (loggedInUser.role === "admin") {
+        setActiveTab("admin");
+      } else {
+        setActiveTab("events");
+      }
       setShowLoginModal(false);
       alert(`${isLogin ? "Login" : "Registration"} successful!`);
     } catch (error) {
@@ -499,7 +509,7 @@ function App() {
   // Host-specific functions
   const fetchMyCreatedEvents = useCallback(async () => {
     const token = localStorage.getItem("token");
-    if (!token || !user) return; // <-- Good check
+    if (!token) return;
     try {
       const response = await axios.get(`${API_BASE}/events/my-events`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -534,7 +544,7 @@ function App() {
 
   const fetchMyPayouts = useCallback(async () => {
     const token = localStorage.getItem("token");
-    if (!token || !user) return;
+    if (!token) return;
     try {
       const response = await axios.get(`${API_BASE}/hosts/my-payouts`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -547,7 +557,7 @@ function App() {
 
   const fetchBankAccount = useCallback(async () => {
     const token = localStorage.getItem("token");
-    if (!token || !user) return;
+    if (!token) return;
     try {
       const response = await axios.get(`${API_BASE}/hosts/bank-account`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -560,7 +570,7 @@ function App() {
 
   const fetchHostStatus = useCallback(async () => {
     const token = localStorage.getItem("token");
-    if (!token || !user) return;
+    if (!token) return;
     try {
       const response = await axios.get(`${API_BASE}/hosts/my-status`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -1061,6 +1071,8 @@ function App() {
     if (user?.role === "admin") {
       fetchPendingEvents();
       fetchPendingHosts();
+      fetchApprovedHosts();
+      fetchRejectedHosts();
       fetchAdminPayouts();
       fetchAllApprovedEvents();
       fetchAllRejectedEvents();
