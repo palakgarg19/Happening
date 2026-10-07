@@ -22,7 +22,7 @@ It features a modern React frontend and a high-performance Node.js backend that 
 | **User** | `user2@happening.com` | `password` |
 
 #### 💳 Payment Testing
-For (simulated) payment testing, you can use the following Razorpay test credentials:
+For payment testing, you can use the following Razorpay test credentials:
 - **Method**: UPI
 - **VPA/ID**: `success@razorpay` (for successful payments)
 

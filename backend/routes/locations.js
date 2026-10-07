@@ -5,11 +5,6 @@ const { authenticateToken } = require("../middleware/auth");
 
 const router = express.Router();
 
-// === NEW: In-Memory Cache ===
-// We use a Map to store results: { query -> { suggestions, timestamp } }
-const locationCache = new Map();
-const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
-
 /**
  * GET /api/locations/autocomplete
  *
@@ -18,35 +13,37 @@ const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
  */
 router.get("/autocomplete", authenticateToken, async (req, res) => {
   const { q } = req.query;
+  const redisClient = req.app.get("redisClient");
 
   if (!q || q.length < 3) {
     return res.json({ suggestions: [] });
   }
 
   const normalizedQuery = q.toLowerCase().trim();
+  const cacheKey = `location:autocomplete:${normalizedQuery}`;
 
-  // 1. Check if the result is in our cache and is not expired
-  if (locationCache.has(normalizedQuery)) {
-    const cachedEntry = locationCache.get(normalizedQuery);
-    const isCacheValid = (Date.now() - cachedEntry.timestamp) < CACHE_DURATION_MS;
-
-    if (isCacheValid) {
-      // Return the cached result instantly
-      return res.json({ suggestions: cachedEntry.suggestions, fromCache: true });
-    } else {
-      // Cache is expired, delete it
-      locationCache.delete(normalizedQuery);
-    }
-  }
-
-  // 2. Not in cache or expired, so we must fetch from the API
   try {
+    // 1. Check if the result is in Redis
+    if (redisClient?.isOpen) {
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        console.log(`CACHE HIT: ${cacheKey}`);
+        return res.json({
+          suggestions: JSON.parse(cachedData),
+          fromCache: true,
+        });
+      }
+    }
+
+    console.log(`CACHE MISS: ${cacheKey} (Fetching from API)`);
+
+    // 2. Cache miss, fetch from Nominatim API
     const encodedQuery = encodeURIComponent(normalizedQuery);
     const url = `https://nominatim.openstreetmap.org/search?q=${encodedQuery}&format=json&addressdetails=1&limit=5`;
 
     const response = await axios.get(url, {
       headers: {
-        "User-Agent": "HappeningApp/1.0 (vivek.garg@myemail.com)", // Your User-Agent
+        "User-Agent": "HappeningApp/1.0 (vivek.garg@myemail.com)",
       },
     });
 
@@ -57,17 +54,17 @@ router.get("/autocomplete", authenticateToken, async (req, res) => {
         name: item.display_name,
       }));
     }
-    
-    // 3. Save the new result in our cache
-    const newCacheEntry = {
-      suggestions: suggestions,
-      timestamp: Date.now()
-    };
-    locationCache.set(normalizedQuery, newCacheEntry);
+
+    // 3. Save the new result in Redis (Expire in 1 hour)
+    if (redisClient?.isOpen) {
+      await redisClient.set(cacheKey, JSON.stringify(suggestions), {
+        EX: 3600,
+      });
+      console.log(`CACHE SET: ${cacheKey}`);
+    }
 
     // 4. Return the fresh result
     res.json({ suggestions: suggestions, fromCache: false });
-
   } catch (error) {
     console.error("Location autocomplete error:", error.message);
     res.status(500).json({ error: "Failed to fetch location suggestions" });

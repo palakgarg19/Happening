@@ -27,9 +27,11 @@ const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
 const amqpUrl = process.env.AMQP_URL || "amqp://localhost:5672";
 const QUEUE_NAME = "booking_jobs";
 
+let rabbitmqConnection = null;
+
 const redisClient = redis.createClient({
   url: redisUrl,
-    socket: {
+  socket: {
     reconnectStrategy: (retries) => {
       if (retries > 10) {
         console.error("❌ Redis reconnection failed after 10 attempts");
@@ -60,8 +62,8 @@ async function setupRabbitMQ() {
       return;
     }
 
-    const connection = await amqp.connect(amqpUrl);
-    const channel = await connection.createChannel();
+    rabbitmqConnection = await amqp.connect(amqpUrl);
+    const channel = await rabbitmqConnection.createChannel();
 
     // This makes sure the queue exists. 'durable: true' means the queue
     // won't be lost if RabbitMQ restarts.
@@ -89,8 +91,8 @@ app.set("redisClient", redisClient);
 const allowedOrigins = [
   "https://happening-seven.vercel.app",
   "http://localhost:5173",
-  process.env.FRONTEND_URL, // Allow custom frontend URL from env
-].filter(Boolean); // Remove undefined values
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 app.use(
   cors({
     origin: allowedOrigins,
@@ -162,7 +164,7 @@ app.get("/api/health", async (req, res) => {
 // Start server
 const server = app.listen(PORT, () => {
   console.log(`🎯 Happening server running on http://localhost:${PORT}`);
-   console.log(`📚 API Docs available at http://localhost:${PORT}/api-docs`);
+  console.log(`📚 API Docs available at http://localhost:${PORT}/api-docs`);
 });
 
 // Graceful shutdown handling
@@ -174,16 +176,30 @@ process.on("SIGTERM", async () => {
 
     // Close Redis connection
     try {
-      await redisClient.quit();
-      console.log("✅ Redis connection closed");
+      if (redisClient && redisClient.isOpen) {
+        await redisClient.quit();
+        console.log("✅ Redis connection closed");
+      }
     } catch (err) {
       console.error("❌ Error closing Redis:", err.message);
     }
 
+    // Close RabbitMQ connection
+    try {
+      if (rabbitmqConnection) {
+        await rabbitmqConnection.close();
+        console.log("✅ RabbitMQ connection closed");
+      }
+    } catch (err) {
+      console.error("❌ Error closing RabbitMQ:", err.message);
+    }
+
     // Close database pool
     try {
-      await pool.end();
-      console.log("✅ Database pool closed");
+      if (pool) {
+        await pool.end();
+        console.log("✅ Database pool closed");
+      }
     } catch (err) {
       console.error("❌ Error closing database:", err.message);
     }

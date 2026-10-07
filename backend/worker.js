@@ -54,7 +54,7 @@ async function processBookingJob(job) {
     console.log(
       `[WORKER] ✅ Successfully processed booking ${bookingResult.rows[0].id}`
     );
-    return true; // Success
+    return true;
   } catch (error) {
     await client.query("ROLLBACK");
     console.error(
@@ -89,12 +89,9 @@ async function startWorker() {
 
         // Process the job
         const success = await processBookingJob(job);
-
         if (success) {
-          // Tell RabbitMQ the job is done
           channel.ack(msg);
         } else {
-          // Tell RabbitMQ the job failed (it won't be retried)
           channel.nack(msg, false, false);
         }
       }

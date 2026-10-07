@@ -258,7 +258,7 @@ function App() {
         );
 
         alert(
-          "Booking accepted! Taking you to 'My Bookings'."
+          "Booking processing started! Taking you to 'My Bookings' to complete the payment."
         );
 
         // Tiny delay to ensure DB consistency before redirect/fetch

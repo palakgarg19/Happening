@@ -11,8 +11,6 @@ const razorpay = new Razorpay({
 });
 
 /**
- * NEW REUSABLE FUNCTION: processRefund
- *
  * This function handles the logic for refunding a single booking.
  * It's designed to be called from within a database transaction.
  *

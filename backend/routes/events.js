@@ -44,7 +44,7 @@ router.get("/public/upcoming", async (req, res) => {
 
   try {
     // 1. TRY CACHE
-    if (redisClient) {
+    if (redisClient?.isOpen) {
       const cachedResults = await redisClient.get(cacheKey);
       if (cachedResults) {
         console.log("CACHE HIT: /public/upcoming");
@@ -70,7 +70,7 @@ router.get("/public/upcoming", async (req, res) => {
     const events = result.rows;
 
     // 3. SET CACHE (Expire in 5 minutes = 300 seconds)
-    if (redisClient) {
+    if (redisClient?.isOpen) {
       await redisClient.set(cacheKey, JSON.stringify(events), { EX: 300 });
     }
     console.log("DATABASE: /public/upcoming");
@@ -91,7 +91,7 @@ router.get("/public/search", async (req, res) => {
 
   try {
     // 1. === TRY THE CACHE FIRST ===
-    if (redisClient) {
+    if (redisClient?.isOpen) {
       const cachedResults = await redisClient.get(cacheKey);
       if (cachedResults) {
         // Cache HIT! Parse the JSON and return it instantly.
@@ -183,7 +183,7 @@ router.get("/public/search", async (req, res) => {
     const events = result.rows;
 
     // 3. === SAVE TO CACHE before returning ===
-    if (redisClient) {
+    if (redisClient?.isOpen) {
       // Set the result in Redis. 'EX: 600' means "expire in 600 seconds" (10 mins)
       await redisClient.set(cacheKey, JSON.stringify(events), { EX: 600 });
     }
@@ -206,7 +206,7 @@ router.get("/public/categories", async (req, res) => {
 
   try {
     // 1. TRY CACHE
-    if (redisClient) {
+    if (redisClient?.isOpen) {
       const cachedResults = await redisClient.get(cacheKey);
       if (cachedResults) {
         console.log("CACHE HIT: /public/categories");
@@ -225,7 +225,7 @@ router.get("/public/categories", async (req, res) => {
     const categories = result.rows.map((row) => row.category);
 
     // 3. SET CACHE (Expire in 24 hours = 86400 seconds)
-    if (redisClient) {
+    if (redisClient?.isOpen) {
       await redisClient.set(cacheKey, JSON.stringify(categories), {
         EX: 86400,
       });
@@ -405,7 +405,7 @@ router.post(
         ]
       );
 
-      if (redisClient) {
+      if (redisClient?.isOpen) {
         await redisClient.del(`event:${eventId}`); // Clear specific event
         await redisClient.del("events:public:upcoming"); // Clear upcoming list
         // Clear all search caches
@@ -434,7 +434,7 @@ router.get("/:id", async (req, res) => {
 
   try {
     // 1. TRY CACHE
-    if (redisClient) {
+    if (redisClient?.isOpen) {
       const cachedResults = await redisClient.get(cacheKey);
       if (cachedResults) {
         console.log(`CACHE HIT: /events/${id}`);
@@ -465,7 +465,7 @@ router.get("/:id", async (req, res) => {
     const event = result.rows[0];
 
     // 3. SET CACHE (Expire in 10 minutes = 600 seconds)
-    if (redisClient) {
+    if (redisClient?.isOpen) {
       await redisClient.set(cacheKey, JSON.stringify(event), { EX: 600 });
     }
 
@@ -660,7 +660,7 @@ router.put("/:id", authenticateToken, async (req, res) => {
         id,
       ]
     );
-    if (redisClient) {
+    if (redisClient?.isOpen) {
       console.log(`CACHE CLEAR: Deleting event:${id} and lists`);
       await redisClient.del(`event:${id}`); // Clear specific event
       await redisClient.del("events:public:upcoming"); // Clear upcoming list
@@ -746,7 +746,7 @@ router.post("/:id/cancel", authenticateToken, async (req, res) => {
 
     await client.query("COMMIT");
 
-    if (redisClient) {
+    if (redisClient?.isOpen) {
       await redisClient.del(`event:${event_id}`); // Clear specific event
       await redisClient.del("events:public:upcoming"); // Clear upcoming list
       // Clear all search caches
