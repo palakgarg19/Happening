@@ -24,7 +24,7 @@ router.get("/autocomplete", authenticateToken, async (req, res) => {
 
   try {
     // 1. Check if the result is in Redis
-    if (redisClient?.isOpen) {
+    if (redisClient?.isReady) {
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
         console.log(`CACHE HIT: ${cacheKey}`);
@@ -56,7 +56,7 @@ router.get("/autocomplete", authenticateToken, async (req, res) => {
     }
 
     // 3. Save the new result in Redis (Expire in 1 hour)
-    if (redisClient?.isOpen) {
+    if (redisClient?.isReady) {
       await redisClient.set(cacheKey, JSON.stringify(suggestions), {
         EX: 3600,
       });
